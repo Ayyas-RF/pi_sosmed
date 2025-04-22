@@ -1,8 +1,12 @@
+require('dotenv').config();
 const express = require('express')
 const bodyParser = require('body-parser')
 const WebSocket = require('ws')
 const http = require('http')
-const { student } = require('./models')
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcryptjs')
+const JWT_SECRET = process.env.JWT_SECRET;
+const { student, User } = require('./models')
 
 const app = express()
 app.use(bodyParser.json())
@@ -13,6 +17,22 @@ const hostName = "127.0.0.1"
 
 const server = http.createServer(app)
 const wss = new WebSocket.Server({ server })
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token == null) {
+    return res.sendStatus(401);
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.sendStatus(403);
+    }
+    req.user = user;
+    next();
+  });
+};
 
 wss.on('connection', (ws) => {
     console.log(`connecting to ws`)
@@ -48,13 +68,14 @@ app.get("/", (req, res) => {
     })
 })
 
-app.get("/student", async (req, res) => {
+app.get("/student", authenticateToken, async (req, res) => {
   try {
     const students = await
     student.findAll();
     res.status(200).json({
       data: students,
-      message: "Successfully fetched all students!"
+      message: "Successfully fetched all students!",
+      user: req.user
     });
   } catch (error) {
     console.error("Error fetching students:", error);
@@ -66,7 +87,7 @@ app.get("/student", async (req, res) => {
   }
 })
 
-app.post("/student", async (req, res) => {
+app.post("/student", authenticateToken, async (req, res) => {
     try {
       const newStudent= await
       student.create(req.body);
@@ -84,7 +105,7 @@ app.post("/student", async (req, res) => {
     }
 })
 
-app.get("/student/:id", async (req, res) => {
+app.get("/student/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
     const foundStudent = await
@@ -110,7 +131,7 @@ app.get("/student/:id", async (req, res) => {
   }
 })
 
-app.put("/student/:id", async (req, res) => {
+app.put("/student/:id", authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
       const [updatedRows] = await
@@ -140,7 +161,7 @@ app.put("/student/:id", async (req, res) => {
     }
 })
 
-app.delete("/student/:id", async (req, res) => {
+app.delete("/student/:id", authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
       const deletedRows = await
@@ -164,5 +185,55 @@ app.delete("/student/:id", async (req, res) => {
       });
     }
 })
+
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Username and password are required.' });
+  }
+
+  try {
+    const existingUser = await User.findOne({ where: { username } });
+    if (existingUser) {
+      return res.status(409).json({ message: 'Username already exists.' });
+    }
+
+    const newUser = await User.create({ username, password });
+    res.status(201).json({ message: 'User registered successfully.' });
+  } catch (error) {
+    console.error('Error registering user:', error);
+    res.status(500).json({ message: 'Failed to register user.', error: error.message });
+  }
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Username and password are required.' });
+  }
+
+  try {
+    const user = await User.findOne({ where: { username } });
+
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    const isPasswordValid = await user.isValidPassword(password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(200).json({ message: 'Login successful.', token });
+  } catch (error) {
+    console.error('Error logging in:', error);
+    res.status(500).json({ message: 'Failed to login.', error: error.message });
+  }
+});
 
 app.listen(PORT, () => console.log(`Server running at http://${hostName}:${PORT}`))
