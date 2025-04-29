@@ -3,6 +3,8 @@
 /server/config/*
 /server/node_modules/*
 /server/node_modules
+/notif_server/node_modules/*
+/notif_server/node_modules
 /node_modules/*
 /node_modules
 /tmp/*
