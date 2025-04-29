@@ -48,7 +48,7 @@
           dataMessageParticipant.push(content)
           
           messageContent.innerHTML = await dataMessageParticipant.map(text => `<li>Message From: ${text?.name}</li>
-            <li>Message: ${text?.message}</li>`).join(",", "")
+            <li>Message: ${text?.message}</li>`).join(",", " ")
             
         }
         
@@ -77,7 +77,7 @@
         
         try {
           fetch("http://127.0.0.1:3002/send-message"), {
-            method: 'POST',
+            method: "POST",
             headers: {
               "Content-Type": "application/json",
               "Accept": "application/json",
