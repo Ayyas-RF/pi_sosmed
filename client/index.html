@@ -32,40 +32,73 @@
         integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq"
         crossorigin="anonymous"></script>
     <script>
+        let dataMessageParticipant = []
+        
+        const socket = new WebSocket('ws://127.0.0.1:3002')
+        
+        socket.onopen = () => {
+          console.log(`CONNECT TO SERVER`)
+        }
+        
+        socket.onmessage = async (event) => {
+          console.log(`ON MESSAGE: ${JSON.stringify(event?.data)}`)
+          const messageContent = document.getElementById('message-content')
+          
+          const content = JSON.parse(event?.data)
+          dataMessageParticipant.push(content)
+          
+          messageContent.innerHTML = await dataMessageParticipant.map(text => `<li>Message From: ${text?.name}</li>
+            <li>Message: ${text?.message}</li>`).join(",", "")
+            
+        }
+        
+        socket.onerror = (event) => {
+          console.log(`ON ERROR: ${JSON.stringify(event)}`)
+        }
+        
+        socket.onclose = async (event) => {
+          console.log(`ON CLOSE: ${JSON.stringify(event)}`)
+        }
         const contentMessage = document.getElementById('message-content')
         const nameParticipant = document.getElementById('name')
         const messageParticipant = document.getElementById('message')
 
-        let dataMessageParticipant = []
-
-        const submit = async () => {
+        function submit() {
             if (nameParticipant.value === "" || messageParticipant.value === "") {
                 alert("Name and message must be filled!")
                 return
             }
 
-            dataMessageParticipant.push({
-                message: messageParticipant.value,
-                name: nameParticipant.value
-            })
-
-            const resonse = await fetch("http://127.0.0.1:3000/send-message", {
-                method: "POST",
-                body: JSON.stringify({ data: dataMessageParticipant }),
-                // ...
-            })
-            // fetch({
-            //     url: 'http://127.0.0.1:3000/send-message',
-            //     method: 'POST',
-            //     body: {
-            //         data: dataMessageParticipant
-            //     }
+            // dataMessageParticipant.push({
+            // message: messageParticipant.value,
+            // name: nameParticipant.value
             // })
-            //     .then((res) => res)
-            //     .then((res) => console.log(res.data))
-            // console.log(`data message: ${JSON.stringify(dataMessageParticipant)}`)
         }
-
+        
+        try {
+          fetch("http://127.0.0.1:3002/send-message"), {
+            method: 'POST',
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify({
+              name: nameParticipant.value,
+              message: messageParticipant.value
+            }),
+          }).then(async (res) => 
+          await console.log(res)
+          
+          ).then(async (res2) => await console.log(`res2: ${res2}`)
+          ).catch(err => console.log(`ERR: ${err}`))
+          
+          
+          } catch (error) {
+            console.log(error)
+          }
+          
+          
+        }
     </script>
 </body>
 
